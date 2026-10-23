@@ -1443,7 +1443,7 @@
                         <div class="col-span-2 bg-white/90 backdrop-blur-md rounded-[22px] p-3.5 flex flex-col justify-between shadow-sm h-[176px]">
                             <!-- Widget Header -->
                             <div class="flex justify-between items-center">
-                                <span class="text-gray-500 font-bold text-[15px]">다 울었니? 이제 할...</span>
+                                <span class="text-gray-500 font-bold text-[15px]">미리 알림</span>
                                 <span class="text-slate-900 font-bold text-lg">32</span>
                             </div>
 
@@ -1461,10 +1461,7 @@
                                     <div class="w-4 h-4 rounded-full border-[1.5px] border-slate-300 flex-shrink-0"></div>
                                     <span class="truncate">준휘한테 한자 해석 부탁하기</span>
                                 </div>
-                                <div class="flex items-center space-x-2">
-                                    <div class="w-4 h-4 rounded-full border-[1.5px] border-slate-300 flex-shrink-0"></div>
-                                    <span class="truncate">호시 차쥐뿔</span>
-                                </div>
+                                
                                 <div class="flex items-center space-x-2">
                                     <div class="w-4 h-4 rounded-full border-[1.5px] border-slate-300 flex-shrink-0"></div>
                                     <span class="truncate">명호 약속 (늦으면죽기로함)</span>
@@ -1803,6 +1800,9 @@
                     </svg>
                 </div>
 
+            </div>
+            <!-- /MUSIC APP 닫기 (누락되어 있던 </div>) -->
+
             <!-- PHONE APP (전화 > 통화) -->
             <div id="phone-app" class="app-window absolute inset-0">
 
@@ -2134,9 +2134,9 @@
         };
 
         // ===== Photos App (사진) =====
-        const PHOTO_TOTAL = 12;                    // 이미지 장수 (01.png ~ 15.png)
+        const PHOTO_TOTAL = 12;                    // 이미지 장수 (01.png ~ 12.jpg)
         const PHOTO_DIR = '';                      // 이미지 폴더 경로 (예: 'photos/'), 비우면 index.html과 같은 폴더
-        const PHOTO_COUNT_LABEL = '6,574개의 항목'; // 상단에 표시되는 문구
+        const PHOTO_COUNT_LABEL = '16,574개의 항목'; // 상단에 표시되는 문구
 
         function buildPhotoGrid() {
             const grid = document.getElementById('photos-grid');
@@ -2682,6 +2682,49 @@
         ];
         let curChat = null;
 
+        // ===== 자동 응답 =====
+        const AUTO_REPLY_DELAY = 1200; // 답장 간격(ms)
+        const AUTO_REPLY_RULES = [
+            { keywords: ['ㅇㅇ', '어', 'ㅇㅋ', '그래', 'ㄱㄱ'],  replies: ['디코ㄱㄱ'], contacts: ['junhwi'] },
+            { keywords: ['싫어', '시러', '시룸'],  replies: ['너무하다 남편ㅠㅠ','역시 남의편'], contacts: ['junhwi'] },
+            { keywords: ['사랑해'],  replies: ['죽는 거 아니지?'], contacts: ['ww'] },
+            { keywords: ['ㅋㅋㅋㅋ', '좋아요', '좋아', '조아', '조앙', '좋음', '콜', '그래요'], replies: ['보고싶다', 'ㅠㅠ','나 좀 꺼내줘','회사에서'], contacts: ['jisu'] },
+            { keywords: ['경기','시합','축구'],  replies: ['고마우이~~~','잘 지내구 있징??!','밥 잘 머거!!!!'], contacts: ['jh'] },
+            { keywords: ['점심','밥'],  replies: ['먹었어','다음엔 그냥 내가 먼저 말할게','그니까 전화 좀 잘 받아','또 폰 잃어버리지말고'], contacts: ['mh'] },
+        ];
+
+        function normalizeMsg(t) {
+            return String(t).toLowerCase().replace(/\s+/g, '');
+        }
+
+        function findAutoReplies(chat, text) {
+            const src = normalizeMsg(text);
+            for (const rule of AUTO_REPLY_RULES) {
+                if (rule.contacts && !rule.contacts.includes(chat.id)) continue;
+                if (rule.keywords.some(k => src.includes(normalizeMsg(k)))) return rule.replies;
+            }
+            return null;
+        }
+
+        function scheduleAutoReply(chat, text) {
+            const replies = findAutoReplies(chat, text);
+            if (!replies) return;
+            replies.forEach((r, i) => {
+                setTimeout(() => {
+                    chat.messages.push({ from: 'them', text: r });
+                    const viewing = curChat === chat && chatAppEl.classList.contains('active');
+                    if (viewing) {
+                        renderChat();
+                        chatScrollEl.scrollTop = chatScrollEl.scrollHeight;
+                        paintBubbles();
+                    } else {
+                        chat.unread = true;
+                    }
+                    renderMsgList();
+                }, AUTO_REPLY_DELAY * (i + 1));
+            });
+        }
+
         const msgAppEl  = document.getElementById('messages-app');
         const chatAppEl = document.getElementById('chat-app');
         const chatScrollEl = document.getElementById('chat-scroll');
@@ -2791,6 +2834,7 @@
             const t = chatInputEl.value.trim();
             if (!t || !curChat) return;
             curChat.messages.push({ from: 'me', text: t });
+            scheduleAutoReply(curChat, t)
             chatInputEl.value = '';
             chatFieldEl.classList.remove('has-text');
             renderChat();
