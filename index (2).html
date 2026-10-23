@@ -2682,6 +2682,48 @@
         ];
         let curChat = null;
 
+        // ===== 자동 응답 =====
+        const AUTO_REPLY_DELAY = 1200; // 답장 간격(ms)
+        const AUTO_REPLY_RULES = [
+            { keywords: ['ㅇㅇ', '어', 'ㅇㅋ', '그래', 'ㄱㄱ'],  replies: ['디코ㄱㄱ'], contacts: ['junhwi'] },
+            { keywords: ['사랑해'],  replies: ['죽는 거 아니지?'], contacts: ['ww'] },
+            { keywords: ['ㅋㅋㅋㅋ', '좋아요', '좋아', '조아', '조앙', '좋음', '콜', '그래요'], replies: ['보고싶다', 'ㅠㅠ','나 좀 꺼내줘','회사에서'], contacts: ['jisu'] },
+            { keywords: ['경기','시합','축구'],  replies: ['고마우이~~~','잘 지내구 있징??!','밥 잘 머거!!!!'], contacts: ['jh'] },
+            { keywords: ['점심','밥'],  replies: ['먹었어','다음엔 그냥 내가 먼저 말할게','그니까 전화 좀 잘 받아','또 폰 잃어버리지말고'], contacts: ['mh'] },
+        ];
+
+        function normalizeMsg(t) {
+            return String(t).toLowerCase().replace(/\s+/g, '');
+        }
+
+        function findAutoReplies(chat, text) {
+            const src = normalizeMsg(text);
+            for (const rule of AUTO_REPLY_RULES) {
+                if (rule.contacts && !rule.contacts.includes(chat.id)) continue;
+                if (rule.keywords.some(k => src.includes(normalizeMsg(k)))) return rule.replies;
+            }
+            return null;
+        }
+
+        function scheduleAutoReply(chat, text) {
+            const replies = findAutoReplies(chat, text);
+            if (!replies) return;
+            replies.forEach((r, i) => {
+                setTimeout(() => {
+                    chat.messages.push({ from: 'them', text: r });
+                    const viewing = curChat === chat && chatAppEl.classList.contains('active');
+                    if (viewing) {
+                        renderChat();
+                        chatScrollEl.scrollTop = chatScrollEl.scrollHeight;
+                        paintBubbles();
+                    } else {
+                        chat.unread = true;
+                    }
+                    renderMsgList();
+                }, AUTO_REPLY_DELAY * (i + 1));
+            });
+        }
+
         const msgAppEl  = document.getElementById('messages-app');
         const chatAppEl = document.getElementById('chat-app');
         const chatScrollEl = document.getElementById('chat-scroll');
@@ -2791,6 +2833,7 @@
             const t = chatInputEl.value.trim();
             if (!t || !curChat) return;
             curChat.messages.push({ from: 'me', text: t });
+            scheduleAutoReply(curChat, t)
             chatInputEl.value = '';
             chatFieldEl.classList.remove('has-text');
             renderChat();
